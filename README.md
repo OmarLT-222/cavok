@@ -1,235 +1,102 @@
-# ai-app-template
+# cavok
 
-A **Python + FastAPI + uv** starter template with a `.claude/` layer that turns Claude Code into a productive pair-programmer for this stack.
+A Python library for parsing aviation weather messages.
 
-The template is for apps you **build with Claude Code's help**. Grab it from [github.com/OmarLT-222/ai-app-template](https://github.com/OmarLT-222/ai-app-template), describe your idea, and let Claude scaffold the rest.
-
----
-
-## Starting a new project from this template
-
-This repo is marked as a **GitHub template**, so prefer creating a fresh repo from it rather than cloning it directly. That way your commits go to *your* new repo, not back to the template.
-
-**Option A — GitHub UI (recommended)**
-
-On the [repo page](https://github.com/OmarLT-222/ai-app-template), click **"Use this template" → "Create a new repository"**. GitHub creates a brand-new repo with no template history and `origin` already pointing at your new repo. Then clone that new repo:
-
-```bash
-git clone git@github.com:<you>/<your-new-repo>.git
-cd <your-new-repo>
-```
-
-**Option B — `gh` CLI**
-
-```bash
-gh repo create my-new-app --template OmarLT-222/ai-app-template --private --clone
-cd my-new-app
-```
-
-**Option C — plain `git clone` (only if you know what you're doing)**
-
-A normal `git clone` **ignores the template flag** — you inherit the full template history, and `origin` still points at the template repo. Pushing would push back to the template. To detach and start fresh:
-
-```bash
-git clone git@github.com:OmarLT-222/ai-app-template.git my-new-app
-cd my-new-app
-rm -rf .git
-git init && git add . && git commit -m "Initial commit"
-gh repo create my-new-app --private --source=. --remote=origin --push
-```
+v1 supports **METAR** and **TAF**. More message types (SIGMET, PIREP, …) are planned for future releases.
 
 ---
 
-## Quick start
-
-### 1. Get the code
-
-Follow one of the options above to create your project directory, then continue with step 2.
-
-### 2. Set up the environment
+## Installation
 
 ```bash
-uv sync
+pip install cavok
 ```
 
-That single command creates `.venv/` in the project root, installs everything from `uv.lock`, and downloads a matching Python interpreter if you don't already have one. **You never activate the venv** — every command goes through `uv run`, which auto-selects it.
-
-### 3. (Optional) Sanity-check the baseline
-
-```bash
-uv run pytest -q                          # should pass (3 tests)
-uv run uvicorn app.main:app --reload      # http://127.0.0.1:8000/health
-```
-
-Ctrl-C to stop the server.
-
-### 4. Configure env vars
-
-```bash
-cp .env.example .env
-```
-
-Nothing to change yet — defaults use local SQLite.
-
-### 5. Drive the build in Claude Code
-
-```
-/new-app       # answers questions, writes SPEC.md — review before continuing
-/plan-app      # writes PLAN.md — review before continuing
-/build-app     # deletes Item samples, scaffolds your models/routes/tests,
-                # runs pytest, boots the server, hits /health
-```
-
-Each command's output is yours to edit before running the next one. That's the intended iteration loop.
-
-### 6. From there
-
-- Add features: `/add-feature "let posts have tags"`
-- Add UI: `/add-frontend`
-- Package for deploy: `/dockerize`
-- Sanity check after manual edits: `/verify`
-
-### About the venv, explicitly
-
-- **No** to `python -m venv`
-- **No** to `source .venv/bin/activate`
-- **No** to `pip install`
-- **Yes** to `uv sync` once after cloning, then `uv run <anything>` for the rest of the project's life
-
-`.venv/` exists on disk (visible after `uv sync`) — it's just managed for you and gitignored.
+No external dependencies — stdlib only.
 
 ---
 
-## What ships
+## Usage
 
-**Baseline scaffold** (`src/app/`)
-- FastAPI app with `/health` and a sample `Item` CRUD (deleted by `/build-app` unless the spec keeps it)
-- SQLAlchemy 2.0 + SQLite, schema via `Base.metadata.create_all()` on startup
-- `pydantic-settings` for config (`.env`-driven)
-- pytest with an in-memory SQLite `client` fixture in `tests/conftest.py`
+```python
+from cavok import parse_metar, parse_taf
 
-**`.claude/` layer**
-- 7 slash commands for the build lifecycle
-- 4 skills auto-loaded when relevant
-- 4 subagents for interview, planning, review, and test-writing
-- Permissions pre-allowlisted for common `uv` and read-only git commands
+metar = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013=")
+
+metar.station          # "LEMD"
+metar.wind.speed       # 10
+metar.wind.unit        # "KT"
+metar.temperature      # 15
+metar.dewpoint         # 8
+metar.qnh              # 1013
+metar.sky.layers[0].cover   # "FEW"
+metar.sky.layers[0].height  # 20  (× 100 ft = 2000 ft)
+```
+
+```python
+taf = parse_taf("TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025=")
+
+taf.station       # "LEMD"
+taf.valid_from    # datetime(2024, ..., tzinfo=timezone.utc)
+taf.base.wind.speed  # 10
+```
+
+Both functions raise `cavok.ParseError` (a `ValueError` subclass) if the message is malformed.
 
 ---
 
-## Layout
+## What's parsed
 
-```
-.
-├── .claude/
-│   ├── commands/          slash commands (/new-app, /plan-app, ...)
-│   ├── skills/            auto-loaded when descriptions match
-│   ├── agents/            subagents delegated by commands
-│   └── settings.json      pre-allowed permissions
-├── src/app/
-│   ├── main.py            FastAPI app + router wiring
-│   ├── config.py          pydantic-settings, loads .env
-│   ├── db.py              SQLAlchemy engine + Base + init_db()
-│   ├── deps.py            DI helpers (get_db)
-│   ├── models/            one file per model
-│   └── routes/            one file per resource
-├── tests/
-│   ├── conftest.py        `client` fixture with in-memory SQLite
-│   └── test_*.py
-├── CLAUDE.md              conventions Claude follows in this repo
-├── pyproject.toml         uv-managed dependencies
-├── .env.example
-└── .gitignore
-```
+### METAR / SPECI
 
----
-
-## Slash commands
-
-| Command | What it does |
+| Field | Example |
 |---|---|
-| `/new-app` | Delegates to `spec-writer` to interview you and produce `SPEC.md` |
-| `/plan-app` | Delegates to `architect` to turn `SPEC.md` into a file-by-file `PLAN.md` |
-| `/build-app` | Executes `PLAN.md` — deletes samples, scaffolds files, runs tests, boots the server |
-| `/add-feature <desc>` | Adds an incremental feature; updates `SPEC.md` and writes a scoped plan to `docs/features/<slug>.md` |
-| `/add-frontend` | Bolts on React+Vite, HTMX+Jinja2, or plain HTML/JS |
-| `/dockerize` | Generates a multi-stage Dockerfile, `.dockerignore`, and optional `docker-compose.yml` (SQLite volume or Postgres service) |
-| `/verify` | Runs tests, boots the server, hits `/health`, reports status |
+| Station + time | `LEMD 161230Z` |
+| AUTO / COR flags | `AUTO` |
+| Wind | `23010G18KT`, `VRB05KT` |
+| Prevailing visibility | `9999`, `0800` |
+| RVR (fixed, variable, M/P operators) | `R28L/0600U`, `R28L/M0050V0800U` |
+| Weather phenomena | `-RA`, `TSRA`, `FG` |
+| Cloud layers + CB/TCU | `FEW020CB`, `BKN040` |
+| CAVOK / NSC / SKC | |
+| Temperature + dewpoint | `15/08` |
+| QNH (hPa and inHg) | `Q1013`, `A2992` |
+| RMK | preserved as raw string |
 
-The intended flow for a new app is `/new-app` → `/plan-app` → `/build-app`. Each command reads what the previous one wrote, so you can iterate on the spec or plan without re-running the whole chain.
+### TAF
 
----
-
-## Skills
-
-Auto-loaded when their descriptions match the current task. You don't invoke them directly.
-
-| Skill | Loaded when |
+| Field | Example |
 |---|---|
-| `fastapi-patterns` | Writing routes, debugging request/response issues |
-| `sqlalchemy-patterns` | Adding models, working with the DB |
-| `uv-workflow` | Adding/removing dependencies, running commands |
-| `pytest-patterns` | Writing or fixing tests |
+| Station + issue time + validity | `LEMD 161100Z 1612/1712` |
+| AMD / CNL / COR flags | |
+| Base forecast group | wind, visibility, weather, clouds |
+| BECMG / TEMPO / PROB30 / PROB40 / FM groups | |
 
 ---
 
-## Subagents
+## Values and units
 
-Invoked by slash commands, but you can also call them directly with `Task`/`Agent`.
-
-| Subagent | Purpose |
-|---|---|
-| `spec-writer` | Interviews you, produces `SPEC.md` |
-| `architect` | Reads `SPEC.md`, produces `PLAN.md` |
-| `refactor-reviewer` | Post-implementation review — duplication, convention drift, over-engineering |
-| `test-writer` | Writes pytest tests for existing routes |
+Values are returned in the units as they appear in the message — knots, metres, hPa, °C. No automatic conversion in v1. All times are `datetime` objects with `timezone.utc`.
 
 ---
 
-## Conventions (enforced by `CLAUDE.md`)
+## Contributing
 
-- **Routes**: one router per resource file, `response_model` on every endpoint, sync `def` unless real async I/O is needed
-- **Models**: one SQLAlchemy model per file, SQLAlchemy 2.0 typed style (`Mapped[T]` + `mapped_column()`), plural snake_case tablenames
-- **Tests**: every endpoint has at least a success test, uses the `client` fixture, never mocks the DB
-- **Package manager**: `uv add` / `uv remove` / `uv run` — never `pip`, never bare `python`
-- **Commits**: Claude commits only when you ask
-
-Full details in [`CLAUDE.md`](./CLAUDE.md).
-
----
-
-## Manual usage (no Claude)
-
-The scaffold is a normal FastAPI project:
+Issues and pull requests are welcome. Run the test suite with:
 
 ```bash
-uv sync
-uv run uvicorn app.main:app --reload    # dev server
-uv run pytest -q                         # tests
-uv add <package>                         # add a runtime dep
-uv add --dev <package>                   # add a dev dep
+uv run pytest -q
 ```
 
-`.env` is loaded automatically by `pydantic-settings`; start with `cp .env.example .env`.
-
----
-
-## Adding Alembic (when you outgrow `create_all`)
-
-The template uses `Base.metadata.create_all()` on startup, which is fine for greenfield. When the schema starts changing with real data to preserve:
+Lint and format with:
 
 ```bash
-uv add alembic
-uv run alembic init alembic
+uv run ruff check .
+uv run ruff format .
 ```
-
-Configure `alembic/env.py` to import `Base` from `app.db`, then generate revisions with `uv run alembic revision --autogenerate -m "..."`. Remove the `init_db()` call from the `lifespan` in `main.py` once migrations own the schema.
 
 ---
 
-## Customizing the template
+## License
 
-- **Change conventions**: edit `CLAUDE.md` — it's the source of truth Claude reads.
-- **Add a skill**: create `.claude/skills/<name>/SKILL.md` with `name` and `description` frontmatter. Auto-loads when the description matches.
-- **Add a command**: create `.claude/commands/<name>.md`. Available as `/<name>`.
-- **Add a subagent**: create `.claude/agents/<name>.md` with `name`, `description`, and `tools` frontmatter.
-- **Loosen or tighten permissions**: edit `.claude/settings.json`.
+MIT
