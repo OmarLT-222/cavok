@@ -2,8 +2,30 @@
 name = "cavok"
 version = "0.1.0"
 description = "Python library for parsing aviation weather messages (METAR, TAF)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "OmarLT-222", email = "lukach.omar@gmail.com" }
+]
+keywords = ["metar", "taf", "aviation", "weather", "meteorology", "avwx"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 requires-python = ">=3.11"
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/OmarLT-222/cavok"
+Repository = "https://github.com/OmarLT-222/cavok"
+Issues = "https://github.com/OmarLT-222/cavok/issues"
 
 [dependency-groups]
 dev = [
