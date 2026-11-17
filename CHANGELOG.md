@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.0] — Unreleased
+## 0.1.0
 
 ### Added
 - `parse_metar()` — parses METAR and SPECI messages into typed dataclasses
