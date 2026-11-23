@@ -50,8 +50,21 @@ class SkyCondition:
 
 
 @dataclass
+class TrendForecast:
+    change_type: str
+    validity_from: datetime | None = None
+    validity_to: datetime | None = None
+    at: datetime | None = None
+    wind: Wind | None = None
+    visibility: Visibility | None = None
+    weather: list[WeatherPhenomenon] = field(default_factory=list)
+    sky: SkyCondition | None = None
+
+
+@dataclass
 class Metar:
     station: str
+    type: str
     time: datetime
     auto: bool
     wind: Wind
@@ -63,3 +76,4 @@ class Metar:
     qnh: int
     qnh_unit: str
     rmk: str | None
+    trend: TrendForecast | None = None
