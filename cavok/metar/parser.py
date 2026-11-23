@@ -1,8 +1,7 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from cavok._tokens import (
     RE_CLOUD,
-    RE_FM,
     RE_QNH_A,
     RE_QNH_Q,
     RE_RVR,
@@ -23,9 +22,9 @@ from cavok._tokens import (
 )
 from cavok.exceptions import ParseError
 from cavok.metar.models import (
+    RVR,
     CloudLayer,
     Metar,
-    RVR,
     SkyCondition,
     TrendForecast,
     Visibility,
@@ -43,7 +42,9 @@ def _parse_wind(token: str) -> Wind:
     direction = None if variable else int(dir_str)
     speed = int(speed_str)
     gust = int(gust_str) if gust_str else None
-    return Wind(direction=direction, speed=speed, gust=gust, unit=unit, variable=variable)
+    return Wind(
+        direction=direction, speed=speed, gust=gust, unit=unit, variable=variable
+    )
 
 
 def _parse_rvr(token: str) -> RVR:
@@ -79,7 +80,9 @@ def _parse_visibility(tokens: list[str], pos: int) -> tuple[Visibility, int]:
         raise ParseError(f"Expected visibility token, got: {token!r}", token, pos)
 
     rvr_list: list[RVR] = []
-    while pos < len(tokens) and tokens[pos].startswith("R") and RE_RVR.match(tokens[pos]):
+    while (
+        pos < len(tokens) and tokens[pos].startswith("R") and RE_RVR.match(tokens[pos])
+    ):
         rvr_list.append(_parse_rvr(tokens[pos]))
         pos += 1
 
@@ -95,12 +98,14 @@ def _parse_weather(token: str) -> WeatherPhenomenon:
     # collect all phenomenon codes after descriptor
     rest = token
     if intensity:
-        rest = rest[len(intensity):]
+        rest = rest[len(intensity) :]
     if descriptor:
-        rest = rest[len(descriptor):]
+        rest = rest[len(descriptor) :]
     # split rest into 2-char codes
-    phenomena = [rest[i:i+2] for i in range(0, len(rest), 2)]
-    return WeatherPhenomenon(intensity=intensity, descriptor=descriptor, phenomena=phenomena)
+    phenomena = [rest[i : i + 2] for i in range(0, len(rest), 2)]
+    return WeatherPhenomenon(
+        intensity=intensity, descriptor=descriptor, phenomena=phenomena
+    )
 
 
 def _parse_cloud(token: str) -> CloudLayer:
@@ -146,24 +151,38 @@ def _parse_qnh(token: str) -> tuple[int, str]:
 _CHANGE_INDICATORS = {"BECMG", "TEMPO", "FM", "PROB30", "PROB40"}
 _WEATHER_PREFIXES = {"-", "+", "VC"}
 _DESCRIPTORS = {"MI", "BC", "PR", "DR", "BL", "SH", "TS", "FZ"}
-_PHENOMENA = {"DZ", "RA", "SN", "SG", "IC", "PL", "GR", "GS", "UP",
-              "BR", "FG", "FU", "VA", "DU", "SA", "HZ", "PO", "SQ", "FC", "SS", "DS"}
+_PHENOMENA = {
+    "DZ",
+    "RA",
+    "SN",
+    "SG",
+    "IC",
+    "PL",
+    "GR",
+    "GS",
+    "UP",
+    "BR",
+    "FG",
+    "FU",
+    "VA",
+    "DU",
+    "SA",
+    "HZ",
+    "PO",
+    "SQ",
+    "FC",
+    "SS",
+    "DS",
+}
 
 
 def _looks_like_weather(token: str) -> bool:
     return RE_WEATHER.match(token) is not None
 
 
-def _parse_trend_time(token: str, ref_year: int, ref_month: int) -> datetime:
-    from datetime import timezone
-    m = RE_TREND_TIME.match(token)
-    if not m:
-        raise ParseError(f"Invalid trend time token: {token!r}", token, -1)
-    day, hour, minute = int(m.group(1)), int(m.group(2)), int(m.group(3))
-    return datetime(ref_year, ref_month, day, hour, minute, tzinfo=timezone.utc)
-
-
-def _parse_trend(tokens: list[str], pos: int, ref_year: int, ref_month: int) -> tuple[TrendForecast | None, int]:
+def _parse_trend(
+    tokens: list[str], pos: int, ref_year: int, ref_month: int
+) -> tuple[TrendForecast | None, int]:
     if pos >= len(tokens):
         return None, pos
 
@@ -188,13 +207,34 @@ def _parse_trend(tokens: list[str], pos: int, ref_year: int, ref_month: int) -> 
         mtl = RE_TREND_TL.match(tok)
         mat = RE_TREND_AT.match(tok)
         if mfm:
-            validity_from = datetime(ref_year, ref_month, int(mfm.group(1)), int(mfm.group(2)), int(mfm.group(3)), tzinfo=timezone.utc)
+            validity_from = datetime(
+                ref_year,
+                ref_month,
+                int(mfm.group(1)),
+                int(mfm.group(2)),
+                int(mfm.group(3)),
+                tzinfo=UTC,
+            )
             pos += 1
         elif mtl:
-            validity_to = datetime(ref_year, ref_month, int(mtl.group(1)), int(mtl.group(2)), int(mtl.group(3)), tzinfo=timezone.utc)
+            validity_to = datetime(
+                ref_year,
+                ref_month,
+                int(mtl.group(1)),
+                int(mtl.group(2)),
+                int(mtl.group(3)),
+                tzinfo=UTC,
+            )
             pos += 1
         elif mat:
-            at = datetime(ref_year, ref_month, int(mat.group(1)), int(mat.group(2)), int(mat.group(3)), tzinfo=timezone.utc)
+            at = datetime(
+                ref_year,
+                ref_month,
+                int(mat.group(1)),
+                int(mat.group(2)),
+                int(mat.group(3)),
+                tzinfo=UTC,
+            )
             pos += 1
         else:
             break
@@ -251,7 +291,7 @@ def parse_metar(raw: str) -> Metar:
         raise ParseError("Empty METAR string", "", 0)
 
     pos = 0
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     ref_year, ref_month = now.year, now.month
 
     # message type
@@ -262,7 +302,9 @@ def parse_metar(raw: str) -> Metar:
 
     # station
     if pos >= len(tokens) or not RE_STATION.match(tokens[pos]):
-        raise ParseError(f"Expected ICAO station, got: {tokens[pos]!r}", tokens[pos], pos)
+        raise ParseError(
+            f"Expected ICAO station, got: {tokens[pos]!r}", tokens[pos], pos
+        )
     station = tokens[pos]
     pos += 1
 
@@ -274,12 +316,9 @@ def parse_metar(raw: str) -> Metar:
 
     # optional flags before wind
     auto = False
-    cor = False
     while pos < len(tokens) and tokens[pos] in ("AUTO", "COR", "NIL"):
         if tokens[pos] == "AUTO":
             auto = True
-        elif tokens[pos] == "COR":
-            cor = True
         pos += 1
 
     # wind
@@ -308,20 +347,32 @@ def parse_metar(raw: str) -> Metar:
     # sky condition (or CAVOK already consumed)
     if cavok_vis:
         sky = SkyCondition(cavok=True, nsc=False, layers=[])
-    elif pos < len(tokens) and (RE_SKY_SPECIAL.match(tokens[pos]) or RE_CLOUD.match(tokens[pos])):
+    elif pos < len(tokens) and (
+        RE_SKY_SPECIAL.match(tokens[pos]) or RE_CLOUD.match(tokens[pos])
+    ):
         sky, pos = _parse_sky(tokens, pos)
     else:
         sky = SkyCondition(cavok=False, nsc=False, layers=[])
 
     # temperature / dewpoint
     if pos >= len(tokens) or not RE_TEMP.match(tokens[pos]):
-        raise ParseError(f"Expected temp/dewpoint token, got: {tokens[pos] if pos < len(tokens) else 'EOF'!r}", tokens[pos] if pos < len(tokens) else "", pos)
+        raise ParseError(
+            f"Expected temp/dewpoint token, got: {tokens[pos] if pos < len(tokens) else 'EOF'!r}",
+            tokens[pos] if pos < len(tokens) else "",
+            pos,
+        )
     temperature, dewpoint = _parse_temp(tokens[pos])
     pos += 1
 
     # QNH
-    if pos >= len(tokens) or not (RE_QNH_Q.match(tokens[pos]) or RE_QNH_A.match(tokens[pos])):
-        raise ParseError(f"Expected QNH token, got: {tokens[pos] if pos < len(tokens) else 'EOF'!r}", tokens[pos] if pos < len(tokens) else "", pos)
+    if pos >= len(tokens) or not (
+        RE_QNH_Q.match(tokens[pos]) or RE_QNH_A.match(tokens[pos])
+    ):
+        raise ParseError(
+            f"Expected QNH token, got: {tokens[pos] if pos < len(tokens) else 'EOF'!r}",
+            tokens[pos] if pos < len(tokens) else "",
+            pos,
+        )
     qnh, qnh_unit = _parse_qnh(tokens[pos])
     pos += 1
 
@@ -331,7 +382,7 @@ def parse_metar(raw: str) -> Metar:
     # RMK
     rmk: str | None = None
     if pos < len(tokens) and tokens[pos] == "RMK":
-        rmk = " ".join(tokens[pos + 1:])
+        rmk = " ".join(tokens[pos + 1 :])
         pos = len(tokens)
 
     return Metar(

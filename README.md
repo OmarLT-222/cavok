@@ -23,21 +23,21 @@ from cavok import parse_metar, parse_taf
 
 metar = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013=")
 
-metar.station          # "LEMD"
-metar.wind.speed       # 10
-metar.wind.unit        # "KT"
-metar.temperature      # 15
-metar.dewpoint         # 8
-metar.qnh              # 1013
-metar.sky.layers[0].cover   # "FEW"
+metar.station  # "LEMD"
+metar.wind.speed  # 10
+metar.wind.unit  # "KT"
+metar.temperature  # 15
+metar.dewpoint  # 8
+metar.qnh  # 1013
+metar.sky.layers[0].cover  # "FEW"
 metar.sky.layers[0].height  # 20  (× 100 ft = 2000 ft)
 ```
 
 ```python
 taf = parse_taf("TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025=")
 
-taf.station       # "LEMD"
-taf.valid_from    # datetime(2024, ..., tzinfo=timezone.utc)
+taf.station  # "LEMD"
+taf.valid_from  # datetime(2024, ..., tzinfo=timezone.utc)
 taf.base.wind.speed  # 10
 ```
 
