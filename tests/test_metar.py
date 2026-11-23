@@ -212,6 +212,84 @@ def test_parse_metar_basic():
     assert m.rmk is None
 
 
+# ── type field ───────────────────────────────────────────────────────────────
+
+def test_type_metar():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
+    assert m.type == "METAR"
+
+
+def test_type_speci():
+    m = parse_metar("SPECI LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
+    assert m.type == "SPECI"
+
+
+def test_type_defaults_to_metar_when_prefix_absent():
+    m = parse_metar("LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
+    assert m.type == "METAR"
+
+
+# ── trend forecasts ───────────────────────────────────────────────────────────
+
+def test_nosig():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 NOSIG")
+    assert m.trend is not None
+    assert m.trend.change_type == "NOSIG"
+
+
+def test_no_trend_is_none():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
+    assert m.trend is None
+
+
+def test_trend_tempo_weather():
+    m = parse_metar("SPECI LEMG 172015Z 14022G35KT 0800 R13/1100D +TSRA BKN008CB 18/17 Q1009 TEMPO 0400 +TSGR")
+    assert m.trend is not None
+    assert m.trend.change_type == "TEMPO"
+    assert m.trend.visibility.prevailing == 400
+    assert m.trend.weather[0].intensity == "+"
+    assert m.trend.weather[0].descriptor == "TS"
+    assert "GR" in m.trend.weather[0].phenomena
+
+
+def test_trend_becmg_wind():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 BECMG VRB03KT")
+    assert m.trend.change_type == "BECMG"
+    assert m.trend.wind.variable is True
+    assert m.trend.wind.speed == 3
+
+
+def test_trend_fm_tl_time_indicators():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 TEMPO FM161300 TL161500 0400 RA")
+    t = m.trend
+    assert t.change_type == "TEMPO"
+    assert t.validity_from is not None
+    assert t.validity_from.hour == 13
+    assert t.validity_to is not None
+    assert t.validity_to.hour == 15
+    assert t.at is None
+
+
+def test_trend_at_time_indicator():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 BECMG AT161400 VRB03KT")
+    t = m.trend
+    assert t.at is not None
+    assert t.at.hour == 14
+    assert t.validity_from is None
+
+
+def test_trend_cavok():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 TEMPO CAVOK")
+    assert m.trend.sky.cavok is True
+    assert m.trend.visibility.prevailing is None
+
+
+def test_trend_does_not_consume_rmk():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 NOSIG RMK AO2")
+    assert m.trend.change_type == "NOSIG"
+    assert m.rmk == "AO2"
+
+
 # ── errors ────────────────────────────────────────────────────────────────────
 
 def test_parse_error_bad_token():

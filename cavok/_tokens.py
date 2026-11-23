@@ -26,6 +26,10 @@ RE_QNH_Q = re.compile(r"^Q(\d{4})$")
 RE_QNH_A = re.compile(r"^A(\d{4})$")
 RE_VALIDITY = re.compile(r"^(\d{2})(\d{2})/(\d{2})(\d{2})$")
 RE_FM = re.compile(r"^FM(\d{2})(\d{2})(\d{2})$")
+RE_TREND_TIME = re.compile(r"^(\d{2})(\d{2})(\d{2})$")  # DDHHmm, no Z — trend FM/TL/AT indicator
+RE_TREND_FM = re.compile(r"^FM(\d{2})(\d{2})(\d{2})$")
+RE_TREND_TL = re.compile(r"^TL(\d{2})(\d{2})(\d{2})$")
+RE_TREND_AT = re.compile(r"^AT(\d{2})(\d{2})(\d{2})$")
 
 
 def tokenize(raw: str) -> list[str]:
