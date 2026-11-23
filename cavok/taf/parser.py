@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 from cavok._tokens import (
     RE_CLOUD,
@@ -12,33 +12,39 @@ from cavok._tokens import (
     RE_TIME,
     RE_VALIDITY,
     RE_VIS,
-    RE_WEATHER,
     RE_WIND,
     RE_WIND_VAR,
     parse_time,
     tokenize,
 )
 from cavok.exceptions import ParseError
+from cavok.metar.models import SkyCondition, Visibility
 from cavok.metar.parser import (
+    _looks_like_weather,
     _parse_cloud,
     _parse_rvr,
     _parse_weather,
     _parse_wind,
-    _looks_like_weather,
 )
-from cavok.metar.models import SkyCondition, Visibility, CloudLayer
 from cavok.taf.models import ChangeGroup, ForecastGroup, Taf
 
 _CHANGE_KEYWORDS = {"BECMG", "TEMPO", "PROB30", "PROB40", "FM"}
 
 
-def _parse_validity(token: str, ref_year: int, ref_month: int) -> tuple[datetime, datetime]:
+def _parse_validity(
+    token: str, ref_year: int, ref_month: int
+) -> tuple[datetime, datetime]:
     m = RE_VALIDITY.match(token)
     if not m:
         raise ParseError(f"Invalid validity token: {token!r}", token, -1)
-    from_day, from_hour, to_day, to_hour = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+    from_day, from_hour, to_day, to_hour = (
+        int(m.group(1)),
+        int(m.group(2)),
+        int(m.group(3)),
+        int(m.group(4)),
+    )
     # handle month rollover for to_day < from_day
-    valid_from = datetime(ref_year, ref_month, from_day, from_hour, 0, tzinfo=timezone.utc)
+    valid_from = datetime(ref_year, ref_month, from_day, from_hour, 0, tzinfo=UTC)
     to_month = ref_month
     to_year = ref_year
     if to_day < from_day:
@@ -49,9 +55,11 @@ def _parse_validity(token: str, ref_year: int, ref_month: int) -> tuple[datetime
             to_month += 1
     # hour 24 means midnight next day
     if to_hour == 24:
-        valid_to = datetime(to_year, to_month, to_day, 0, 0, tzinfo=timezone.utc) + timedelta(days=1)
+        valid_to = datetime(to_year, to_month, to_day, 0, 0, tzinfo=UTC) + timedelta(
+            days=1
+        )
     else:
-        valid_to = datetime(to_year, to_month, to_day, to_hour, 0, tzinfo=timezone.utc)
+        valid_to = datetime(to_year, to_month, to_day, to_hour, 0, tzinfo=UTC)
     return valid_from, valid_to
 
 
@@ -60,7 +68,7 @@ def _parse_fm_time(token: str, ref_year: int, ref_month: int) -> datetime:
     if not m:
         raise ParseError(f"Invalid FM token: {token!r}", token, -1)
     day, hour, minute = int(m.group(1)), int(m.group(2)), int(m.group(3))
-    return datetime(ref_year, ref_month, day, hour, minute, tzinfo=timezone.utc)
+    return datetime(ref_year, ref_month, day, hour, minute, tzinfo=UTC)
 
 
 def _parse_forecast_group(
@@ -97,7 +105,11 @@ def _parse_forecast_group(
             else:
                 visibility = Visibility(prevailing=int(tok), unit="M", rvr=[])
             pos += 1
-            while pos < len(tokens) and tokens[pos].startswith("R") and RE_RVR.match(tokens[pos]):
+            while (
+                pos < len(tokens)
+                and tokens[pos].startswith("R")
+                and RE_RVR.match(tokens[pos])
+            ):
                 if visibility.rvr is None:
                     visibility.rvr = []
                 visibility.rvr.append(_parse_rvr(tokens[pos]))
@@ -141,7 +153,10 @@ def _parse_forecast_group(
 
 
 def _parse_change_groups(
-    tokens: list[str], pos: int, ref_year: int, ref_month: int,
+    tokens: list[str],
+    pos: int,
+    ref_year: int,
+    ref_month: int,
     taf_valid_to: datetime,
 ) -> tuple[list[ChangeGroup], int]:
     groups: list[ChangeGroup] = []
@@ -159,7 +174,12 @@ def _parse_change_groups(
             # validity_to = next change group start or taf end
             next_start = taf_valid_to
             for i in range(pos, len(tokens)):
-                if RE_FM.match(tokens[i]) or tokens[i] in ("BECMG", "TEMPO", "PROB30", "PROB40"):
+                if RE_FM.match(tokens[i]) or tokens[i] in (
+                    "BECMG",
+                    "TEMPO",
+                    "PROB30",
+                    "PROB40",
+                ):
                     t = tokens[i]
                     if RE_FM.match(t):
                         next_start = _parse_fm_time(t, ref_year, ref_month)
@@ -175,7 +195,11 @@ def _parse_change_groups(
             change_type = tok
             pos += 1
             if pos >= len(tokens) or not RE_VALIDITY.match(tokens[pos]):
-                raise ParseError(f"Expected validity after {change_type}", tokens[pos] if pos < len(tokens) else "", pos)
+                raise ParseError(
+                    f"Expected validity after {change_type}",
+                    tokens[pos] if pos < len(tokens) else "",
+                    pos,
+                )
             valid_from, valid_to = _parse_validity(tokens[pos], ref_year, ref_month)
             pos += 1
             fg, pos = _parse_forecast_group(tokens, pos, valid_from, valid_to)
@@ -190,7 +214,11 @@ def _parse_change_groups(
                 prob_type = f"{prob_type} TEMPO"
                 pos += 1
             if pos >= len(tokens) or not RE_VALIDITY.match(tokens[pos]):
-                raise ParseError(f"Expected validity after {prob_type}", tokens[pos] if pos < len(tokens) else "", pos)
+                raise ParseError(
+                    f"Expected validity after {prob_type}",
+                    tokens[pos] if pos < len(tokens) else "",
+                    pos,
+                )
             valid_from, valid_to = _parse_validity(tokens[pos], ref_year, ref_month)
             pos += 1
             fg, pos = _parse_forecast_group(tokens, pos, valid_from, valid_to)
@@ -208,7 +236,7 @@ def parse_taf(raw: str) -> Taf:
         raise ParseError("Empty TAF string", "", 0)
 
     pos = 0
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     ref_year, ref_month = now.year, now.month
 
     if tokens[pos] == "TAF":
@@ -227,7 +255,9 @@ def parse_taf(raw: str) -> Taf:
 
     # station
     if pos >= len(tokens) or not RE_STATION.match(tokens[pos]):
-        raise ParseError(f"Expected ICAO station, got: {tokens[pos]!r}", tokens[pos], pos)
+        raise ParseError(
+            f"Expected ICAO station, got: {tokens[pos]!r}", tokens[pos], pos
+        )
     station = tokens[pos]
     pos += 1
 
@@ -239,7 +269,11 @@ def parse_taf(raw: str) -> Taf:
 
     # validity window
     if pos >= len(tokens) or not RE_VALIDITY.match(tokens[pos]):
-        raise ParseError(f"Expected validity window, got: {tokens[pos] if pos < len(tokens) else 'EOF'!r}", tokens[pos] if pos < len(tokens) else "", pos)
+        raise ParseError(
+            f"Expected validity window, got: {tokens[pos] if pos < len(tokens) else 'EOF'!r}",
+            tokens[pos] if pos < len(tokens) else "",
+            pos,
+        )
     valid_from, valid_to = _parse_validity(tokens[pos], ref_year, ref_month)
     pos += 1
 

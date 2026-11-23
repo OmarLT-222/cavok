@@ -1,8 +1,9 @@
 import pytest
-from cavok import parse_metar, ParseError
 
+from cavok import ParseError, parse_metar
 
 # ── wind ──────────────────────────────────────────────────────────────────────
+
 
 def test_wind_basic():
     m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
@@ -39,6 +40,7 @@ def test_wind_variable_direction_suffix():
 
 # ── visibility + RVR ──────────────────────────────────────────────────────────
 
+
 def test_visibility_basic():
     m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
     assert m.visibility.prevailing == 9999
@@ -63,7 +65,9 @@ def test_rvr_fixed():
 
 
 def test_rvr_variable():
-    m = parse_metar("METAR LEMD 161230Z 23010KT 0600 R28L/0400V0800U FEW020 15/08 Q1013")
+    m = parse_metar(
+        "METAR LEMD 161230Z 23010KT 0600 R28L/0400V0800U FEW020 15/08 Q1013"
+    )
     r = m.visibility.rvr[0]
     assert r.value == 400
     assert r.value_max == 800
@@ -88,7 +92,9 @@ def test_rvr_operator_p():
 
 
 def test_rvr_operator_on_variable_ends():
-    m = parse_metar("METAR LEMD 161230Z 23010KT 0050 R28L/M0050V0800U FEW020 15/08 Q1013")
+    m = parse_metar(
+        "METAR LEMD 161230Z 23010KT 0050 R28L/M0050V0800U FEW020 15/08 Q1013"
+    )
     r = m.visibility.rvr[0]
     assert r.operator == "M"
     assert r.value == 50
@@ -98,6 +104,7 @@ def test_rvr_operator_on_variable_ends():
 
 
 # ── weather phenomena ─────────────────────────────────────────────────────────
+
 
 def test_weather_light_rain():
     m = parse_metar("METAR LEMD 161230Z 23010KT 9999 -RA FEW020 15/08 Q1013")
@@ -125,6 +132,7 @@ def test_weather_fog():
 
 # ── sky condition ─────────────────────────────────────────────────────────────
 
+
 def test_sky_cloud_layers():
     m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 BKN080 15/08 Q1013")
     assert len(m.sky.layers) == 2
@@ -150,6 +158,7 @@ def test_visibility_nsc():
 
 
 # ── temperature / QNH ─────────────────────────────────────────────────────────
+
 
 def test_temperature_positive():
     m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
@@ -177,6 +186,7 @@ def test_qnh_inhg():
 
 # ── flags + RMK ───────────────────────────────────────────────────────────────
 
+
 def test_auto_flag():
     m = parse_metar("METAR LEMD 161230Z AUTO 23010KT 9999 FEW020 15/08 Q1013")
     assert m.auto is True
@@ -199,6 +209,7 @@ def test_parse_speci():
 
 # ── full roundtrip ────────────────────────────────────────────────────────────
 
+
 def test_parse_metar_basic():
     m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
     assert m.station == "LEMD"
@@ -212,7 +223,94 @@ def test_parse_metar_basic():
     assert m.rmk is None
 
 
+# ── type field ───────────────────────────────────────────────────────────────
+
+
+def test_type_metar():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
+    assert m.type == "METAR"
+
+
+def test_type_speci():
+    m = parse_metar("SPECI LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
+    assert m.type == "SPECI"
+
+
+def test_type_defaults_to_metar_when_prefix_absent():
+    m = parse_metar("LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
+    assert m.type == "METAR"
+
+
+# ── trend forecasts ───────────────────────────────────────────────────────────
+
+
+def test_nosig():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 NOSIG")
+    assert m.trend is not None
+    assert m.trend.change_type == "NOSIG"
+
+
+def test_no_trend_is_none():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013")
+    assert m.trend is None
+
+
+def test_trend_tempo_weather():
+    m = parse_metar(
+        "SPECI LEMG 172015Z 14022G35KT 0800 R13/1100D +TSRA BKN008CB 18/17 Q1009 TEMPO 0400 +TSGR"
+    )
+    assert m.trend is not None
+    assert m.trend.change_type == "TEMPO"
+    assert m.trend.visibility.prevailing == 400
+    assert m.trend.weather[0].intensity == "+"
+    assert m.trend.weather[0].descriptor == "TS"
+    assert "GR" in m.trend.weather[0].phenomena
+
+
+def test_trend_becmg_wind():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 BECMG VRB03KT")
+    assert m.trend.change_type == "BECMG"
+    assert m.trend.wind.variable is True
+    assert m.trend.wind.speed == 3
+
+
+def test_trend_fm_tl_time_indicators():
+    m = parse_metar(
+        "METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 TEMPO FM161300 TL161500 0400 RA"
+    )
+    t = m.trend
+    assert t.change_type == "TEMPO"
+    assert t.validity_from is not None
+    assert t.validity_from.hour == 13
+    assert t.validity_to is not None
+    assert t.validity_to.hour == 15
+    assert t.at is None
+
+
+def test_trend_at_time_indicator():
+    m = parse_metar(
+        "METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 BECMG AT161400 VRB03KT"
+    )
+    t = m.trend
+    assert t.at is not None
+    assert t.at.hour == 14
+    assert t.validity_from is None
+
+
+def test_trend_cavok():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 TEMPO CAVOK")
+    assert m.trend.sky.cavok is True
+    assert m.trend.visibility.prevailing is None
+
+
+def test_trend_does_not_consume_rmk():
+    m = parse_metar("METAR LEMD 161230Z 23010KT 9999 FEW020 15/08 Q1013 NOSIG RMK AO2")
+    assert m.trend.change_type == "NOSIG"
+    assert m.rmk == "AO2"
+
+
 # ── errors ────────────────────────────────────────────────────────────────────
+
 
 def test_parse_error_bad_token():
     with pytest.raises(ParseError):

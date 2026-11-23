@@ -1,6 +1,6 @@
 [project]
 name = "cavok"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python library for parsing aviation weather messages (METAR, TAF)"
 readme = "README.md"
 license = { text = "MIT" }

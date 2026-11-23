@@ -1,8 +1,9 @@
 import pytest
-from cavok import parse_taf, ParseError
 
+from cavok import ParseError, parse_taf
 
 # ── basic / flags ─────────────────────────────────────────────────────────────
+
 
 def test_parse_taf_basic():
     t = parse_taf("TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025")
@@ -31,6 +32,7 @@ def test_taf_cor_flag():
 
 # ── base forecast ─────────────────────────────────────────────────────────────
 
+
 def test_taf_base_forecast():
     t = parse_taf("TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025")
     assert t.base.wind.speed == 10
@@ -48,10 +50,10 @@ def test_taf_base_cavok():
 
 # ── change groups ─────────────────────────────────────────────────────────────
 
+
 def test_taf_becmg_group():
     t = parse_taf(
-        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 "
-        "BECMG 1618/1620 VRB03KT"
+        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 BECMG 1618/1620 VRB03KT"
     )
     assert len(t.changes) == 1
     cg = t.changes[0]
@@ -77,8 +79,7 @@ def test_taf_tempo_group():
 
 def test_taf_prob30():
     t = parse_taf(
-        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 "
-        "PROB30 1616/1618 23030KT"
+        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 PROB30 1616/1618 23030KT"
     )
     cg = t.changes[0]
     assert cg.change_type == "PROB30"
@@ -87,8 +88,7 @@ def test_taf_prob30():
 
 def test_taf_prob40_tempo():
     t = parse_taf(
-        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 "
-        "PROB40 TEMPO 1616/1618 2000 -RA"
+        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 PROB40 TEMPO 1616/1618 2000 -RA"
     )
     cg = t.changes[0]
     assert cg.change_type == "PROB40 TEMPO"
@@ -98,8 +98,7 @@ def test_taf_prob40_tempo():
 
 def test_taf_fm_group():
     t = parse_taf(
-        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 "
-        "FM161800 09005KT 9999 SCT030"
+        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 FM161800 09005KT 9999 SCT030"
     )
     cg = t.changes[0]
     assert cg.change_type == "FM"
@@ -121,8 +120,7 @@ def test_taf_multiple_change_groups():
 
 def test_taf_cavok_in_change_group():
     t = parse_taf(
-        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 "
-        "TEMPO 1614/1616 CAVOK"
+        "TAF LEMD 161100Z 1612/1712 23010KT 9999 FEW025 TEMPO 1614/1616 CAVOK"
     )
     cg = t.changes[0]
     assert cg.forecast.sky.cavok is True
@@ -130,6 +128,7 @@ def test_taf_cavok_in_change_group():
 
 
 # ── errors ────────────────────────────────────────────────────────────────────
+
 
 def test_parse_error_missing_validity():
     with pytest.raises(ParseError):

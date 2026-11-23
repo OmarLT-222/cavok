@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0] — Unreleased
+
+### Added
+- `Metar.type` field — surfaces `"METAR"` or `"SPECI"` on the parsed object (was consumed but not stored in 0.1.0)
+- `TrendForecast` dataclass — represents NOSIG, BECMG, and TEMPO trend forecasts appended to METARs
+- `Metar.trend` field — `TrendForecast | None`, parses trend forecast after QNH
+- `FM`, `TL`, `AT` time indicators in METAR trends (e.g. `FM161300`, `TL161500`, `AT161400`)
+
+---
+
 ## 0.1.0
 
 ### Added
